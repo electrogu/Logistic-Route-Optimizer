@@ -14,7 +14,6 @@ const IconMagic = () => <svg width="20" height="20" fill="none" stroke="currentC
 const IconDice = () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><circle cx="15.5" cy="15.5" r="1.5"></circle><circle cx="15.5" cy="8.5" r="1.5"></circle><circle cx="8.5" cy="15.5" r="1.5"></circle></svg>;
 const IconBroom = () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M6.3 12.3l10-10a1 1 0 0 1 1.4 0l4 4a1 1 0 0 1 0 1.4l-10 10a1 1 0 0 1-.7.3H7a1 1 0 0 1-1-1v-4a1 1 0 0 1 .3-.7zM15 14l4 4M2 22h20"></path></svg>;
 const IconBomb = () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M11 2a9 9 0 0 1 9 9c0 3-1.5 5.5-4 7M6 11c0-3 1.5-5.5 4-7M2 22h20M12 22v-5M15 17l-3-3-3 3"></path></svg>;
-// NEW: CLOSE/X ICON
 const IconX = () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>;
 
 // --- ALGORITHMS ---
@@ -97,9 +96,7 @@ export default function App() {
   const [availableNodes, setAvailableNodes] = useState([]);
   const [layoutMode, setLayoutMode] = useState('organic');
 
-  // NEW: State for "Edit Mode"
   const [isConnecting, setIsConnecting] = useState(false);
-  // Refs to access state inside event listeners without closure issues
   const isConnectingRef = useRef(false);
   const connectionSourceRef = useRef(null);
 
@@ -168,16 +165,31 @@ export default function App() {
             // Step 2: Select Destination
             const sourceId = connectionSourceRef.current;
             if (sourceId !== clickedId) {
-              edgesRef.current.add({
-                id: `e-${Date.now()}`,
-                from: sourceId,
-                to: clickedId,
-                label: '10',
-                color: { color: '#6b7280' },
-                font: { color: 'white', background: '#374151', strokeWidth: 0, size: 16, face: GRAPH_FONT }
-              });
-              setInstruction("Connected! Click a new Source city.");
-              connectionSourceRef.current = null; // Reset for next pair
+
+              // NEW: DUPLICATE CHECK
+              const allEdges = edgesRef.current.get();
+              const exists = allEdges.some(e =>
+                !String(e.id).startsWith('virtual') && // Ignore simulation lines
+                ((e.from === sourceId && e.to === clickedId) ||
+                  (e.from === clickedId && e.to === sourceId))
+              );
+
+              if (exists) {
+                setInstruction("⚠️ Already connected! Select a different city.");
+                connectionSourceRef.current = null; // Reset selection
+              } else {
+                edgesRef.current.add({
+                  id: `e-${Date.now()}`,
+                  from: sourceId,
+                  to: clickedId,
+                  label: '10',
+                  color: { color: '#6b7280' },
+                  font: { color: 'white', background: '#374151', strokeWidth: 0, size: 16, face: GRAPH_FONT }
+                });
+                setInstruction("Connected! Click a new Source city.");
+                connectionSourceRef.current = null; // Reset for next pair
+              }
+
             } else {
               // Clicked same node twice, reset
               connectionSourceRef.current = null;
@@ -263,11 +275,11 @@ export default function App() {
   const toggleConnectMode = () => {
     const newState = !isConnectingRef.current;
     isConnectingRef.current = newState;
-    setIsConnecting(newState); // Trigger re-render for UI updates
+    setIsConnecting(newState);
 
     if (newState) {
       setInstruction("🔗 MODE ACTIVE: Click Source then Destination.");
-      setSelection(null); // Clear sidebar
+      setSelection(null);
       connectionSourceRef.current = null;
     } else {
       setInstruction("Edit Mode.");
@@ -414,21 +426,142 @@ export default function App() {
   };
 
   const styles = {
-    container: { display: 'flex', height: '100vh', width: '100vw', background: '#111827', color: 'white', fontFamily: 'Verdana, sans-serif', overflow: 'hidden' },
-    sidebar: { width: '340px', background: '#1f2937', borderRight: '1px solid #374151', display: 'flex', flexDirection: 'column', height: '100vh', zIndex: 10 },
-    scrollArea: { padding: '20px', overflowY: 'auto', flex: 1, scrollbarWidth: 'thin', scrollbarColor: '#4b5563 #1f2937' },
-    graphArea: { flex: 1, position: 'relative', background: '#030712' },
-    button: { display: 'flex', alignItems: 'center', gap: '10px', background: '#374151', color: 'white', border: '1px solid #4b5563', padding: '12px', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', width: '100%', marginBottom: '10px', transition: 'all 0.2s', fontFamily: 'Verdana, sans-serif', boxSizing: 'border-box' },
-    buttonPrimary: { background: '#2563eb', borderColor: '#2563eb', fontWeight: 'bold' },
-    buttonActive: { background: '#059669', borderColor: '#059669', fontWeight: 'bold' }, // GREEN FOR ACTIVE MODE
-    input: { background: '#111827', border: '1px solid #4b5563', color: 'white', padding: '10px', borderRadius: '4px', width: '100%', marginBottom: '10px', fontSize: '14px', fontFamily: 'Verdana, sans-serif', boxSizing: 'border-box' },
-    select: { background: '#111827', border: '1px solid #4b5563', color: 'white', padding: '10px', borderRadius: '6px', width: '100%', marginBottom: '15px', cursor: 'pointer', fontFamily: 'Verdana, sans-serif', boxSizing: 'border-box' },
-    sectionTitle: { fontSize: '13px', fontWeight: 'bold', color: '#9ca3af', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' },
-    logItem: { background: '#111827', padding: '10px', borderRadius: '6px', marginBottom: '8px', borderLeft: '3px solid #3b82f6', fontSize: '13px' },
-    virtualLog: { borderLeft: '3px solid #f87171', borderStyle: 'dashed' },
-    status: { position: 'absolute', top: 20, left: 20, background: 'rgba(31, 41, 55, 0.9)', padding: '8px 16px', borderRadius: '20px', border: '1px solid #374151', fontSize: '13px', color: '#e5e7eb' },
-    resultBox: { padding: '15px', borderRadius: '8px', marginBottom: '20px', fontWeight: 'bold', textAlign: 'center', background: result?.type === 'error' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)', color: result?.type === 'error' ? '#fca5a5' : '#6ee7b7', border: `1px solid ${result?.type === 'error' ? '#ef4444' : '#10b981'}`, boxSizing: 'border-box' },
-    editBox: { marginBottom: '20px', padding: '15px', background: '#111827', borderRadius: '8px', border: '1px solid #374151', boxSizing: 'border-box' }
+    container: {
+      display: 'flex',
+      height: '100vh',
+      width: '100vw',
+      background: '#111827',
+      color: 'white',
+      fontFamily: 'Verdana, sans-serif',
+      overflow: 'hidden',
+    },
+    sidebar: {
+      width: '340px',
+      background: '#1f2937',
+      borderRight: '1px solid #374151',
+      display: 'flex',
+      flexDirection: 'column',
+      height: '100vh',
+      zIndex: 10,
+    },
+    scrollArea: {
+      padding: '20px',
+      overflowY: 'auto',
+      flex: 1,
+      scrollbarWidth: 'thin',
+      scrollbarColor: '#4b5563 #1f2937',
+    },
+    graphArea: {
+      flex: 1,
+      position: 'relative',
+      background: '#030712',
+    },
+    button: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '10px',
+      background: '#374151',
+      color: 'white',
+      border: '1px solid #4b5563',
+      padding: '12px',
+      borderRadius: '6px',
+      cursor: 'pointer',
+      fontSize: '14px',
+      width: '100%',
+      marginBottom: '10px',
+      transition: 'all 0.2s',
+      fontFamily: 'Verdana, sans-serif',
+      boxSizing: 'border-box',
+    },
+    buttonPrimary: {
+      background: '#2563eb',
+      borderColor: '#2563eb',
+      fontWeight: 'bold',
+    },
+    buttonActive: {
+      background: '#059669',
+      borderColor: '#059669',
+      fontWeight: 'bold',
+    },
+    input: {
+      background: '#111827',
+      border: '1px solid #4b5563',
+      color: 'white',
+      padding: '10px',
+      borderRadius: '4px',
+      width: '100%',
+      marginBottom: '10px',
+      fontSize: '14px',
+      fontFamily: 'Verdana, sans-serif',
+      boxSizing: 'border-box',
+    },
+    select: {
+      background: '#111827',
+      border: '1px solid #4b5563',
+      color: 'white',
+      padding: '10px',
+      borderRadius: '6px',
+      width: '100%',
+      marginBottom: '15px',
+      cursor: 'pointer',
+      fontFamily: 'Verdana, sans-serif',
+      boxSizing: 'border-box',
+    },
+    sectionTitle: {
+      fontSize: '13px',
+      fontWeight: 'bold',
+      color: '#9ca3af',
+      marginBottom: '10px',
+      textTransform: 'uppercase',
+      letterSpacing: '0.5px',
+    },
+    logItem: {
+      background: '#111827',
+      padding: '10px',
+      borderRadius: '6px',
+      marginBottom: '8px',
+      borderLeft: '3px solid #3b82f6',
+      fontSize: '13px',
+    },
+    virtualLog: {
+      borderLeft: '3px solid #f87171',
+      borderStyle: 'dashed',
+    },
+    status: {
+      position: 'absolute',
+      top: 20,
+      left: 20,
+      background: 'rgba(31, 41, 55, 0.9)',
+      padding: '8px 16px',
+      borderRadius: '20px',
+      border: '1px solid #374151',
+      fontSize: '13px',
+      color: '#e5e7eb',
+    },
+    resultBox: {
+      padding: '15px',
+      borderRadius: '8px',
+      marginBottom: '20px',
+      fontWeight: 'bold',
+      textAlign: 'center',
+      boxSizing: 'border-box',
+      background: result?.type === 'error'
+        ? 'rgba(239, 68, 68, 0.2)'
+        : 'rgba(16, 185, 129, 0.2)',
+      color: result?.type === 'error'
+        ? '#fca5a5'
+        : '#6ee7b7',
+      border: `1px solid ${result?.type === 'error' ? '#ef4444' : '#10b981'
+        }`,
+    },
+    editBox: {
+      marginBottom: '20px',
+      padding: '15px',
+      background: '#111827',
+      borderRadius: '8px',
+      border: '1px solid #374151',
+      boxSizing: 'border-box',
+    },
   };
 
   return (

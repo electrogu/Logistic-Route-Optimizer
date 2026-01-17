@@ -1,86 +1,74 @@
-# 🚛 Logistic Route Optimizer
+# Logistic Route Optimizer: A Graph-Theoretic Approach to Pathfinding
 
-A powerful, interactive web application that visualizes complex graph algorithms to solve logistic routing problems. This tool allows users to build city networks, simulate road connections, and calculate the optimal round-trip path for a delivery truck using the **Traveling Salesman Problem (TSP)** logic.
+<p align="center">
+  <img src="images/research_paper_example.png" alt="Simulation Preview" width="50%">
+</p>
 
-![Project Screenshot](https://via.placeholder.com/800x450.png?text=Logistic+Route+Optimizer+Screenshot)
-*(Replace this link with a real screenshot of your app!)*
+## Abstract
+This project implements a visual simulation of the **Metric Traveling Salesman Problem (TSP)** to optimize logistic delivery routes. By leveraging the **Floyd-Warshall algorithm** for metric closure and a **Greedy Nearest Neighbor** heuristic for path selection, the application demonstrates how theoretical graph algorithms can be applied to real-world logistic constraints. The system provides an interactive web interface for constructing, visualizing, and solving dynamic graph topologies.
 
-## 🌟 Features
+## 1. Introduction
+Efficient routing is a cornerstone of modern logistics. The challenge lies in determining the shortest possible route that visits a set of locations exactly once and returns to the origin. This application serves as both a pedagogical tool and a proof-of-concept for solving these routing complexities using a **complete metric graph** approach.
 
-* **Interactive Graph Builder:**
-    * **Add Cities:** Dynamically create nodes on the map.
-    * **Connect Roads:** Create weighted edges (roads) with specific travel costs.
-    * **Drag & Drop:** Fully interactive physics-based canvas.
-    * **Edit & Delete:** Click any city or road to modify values or right-click to delete.
-* **Advanced Algorithms:**
-    * **Metric Closure:** Automatically calculates "Virtual Roads" (dashed red lines) to find the shortest path between disconnected cities using intermediate stops.
-    * **TSP Solver:** Optimization engine that determines the most efficient route to visit all cities and return to the start.
-* **Simulation Tools:**
-    * **🎲 Randomize Map:** Instantly generates complex graph scenarios to test the algorithm.
-    * **✨ Auto-Layout Engines:** Switch between *Organic*, *Force Atlas*, and *Tree* layouts to organize messy graphs.
-    * **📜 Step-by-Step Log:** Detailed sidebar breakdown of every step in the optimal route.
+## 2. Methodology & Algorithms
 
-## 🧠 How It Works
+The core logic of the optimizer relies on a two-stage algorithmic process:
 
-The application solves the **Metric Traveling Salesman Problem** using a two-step process:
+### 2.1. Metric Closure (Virtual Road Generation)
+In real-world geography, direct paths between all cities do not always exist. To solve this, the application first computes the **Metric Closure** of the graph.
+* **Algorithm:** Floyd-Warshall.
+* **Function:** It calculates the shortest path between all pairs of nodes ($u, v$). If no direct edge exists, it creates a "Virtual Edge" (represented by dashed red lines) with a weight equal to the shortest path through intermediate nodes.
+* **Result:** A fully connected graph satisfying the triangle inequality ($cost(u, v) \leq cost(u, w) + cost(w, v)$).
 
-1.  **Metric Closure (Floyd-Warshall Algorithm):**
-    First, it calculates the shortest distance between *every* pair of cities. If City A and City C are not directly connected, the algorithm finds the best path through other cities (e.g., A → B → C) and creates a "Virtual Edge" representing that total cost.
+### 2.2. Route Optimization (TSP Solver)
+Once the graph is complete (metric closure), the application solves the TSP.
+* **Algorithm:** Greedy Nearest Neighbor / Heuristic Search.
+* **Process:** Starting from the defined `Source` node, the algorithm iteratively selects the unvisited node with the minimum edge weight.
+* **Output:** An ordered Hamiltonian Cycle representing the optimal delivery route.
 
-2.  **Route Optimization (Greedy Nearest Neighbor):**
-    Using the complete distance matrix from step 1, the truck starts at a selected node and iteratively chooses the nearest unvisited city. Finally, it calculates the return trip to the start, ensuring a complete loop.
+## 3. System Architecture
 
-## 🛠️ Tech Stack
+The application is built as a Single Page Application (SPA) to ensure reactive performance and real-time visualization.
 
-* **Frontend:** React.js, Vite
-* **Visualization:** Vis.js (vis-network, vis-data)
-* **Styling:** CSS-in-JS (Custom Dark Theme)
-* **Algorithms:** Graph Theory (DFS/BFS, Shortest Path, TSP)
+* **Frontend Framework:** React.js (Vite)
+* **Graph Rendering Engine:** Vis.js (Physics-based force-directed layout)
+* **State Management:** React Hooks (`useState`, `useRef`) for O(1) access to graph data structures.
+* **Styling:** Modular CSS-in-JS with a dark-mode UI optimized for data visibility.
 
-## 🚀 Getting Started
+## 4. Features & Controls
 
-Follow these steps to run the project locally.
+The interface is designed to allow rapid prototyping of network graphs.
 
-### Prerequisites
-* Node.js installed on your machine.
+| Feature | Description |
+| :--- | :--- |
+| **Interactive Construction** | Users can add nodes and define weighted edges dynamically. |
+| **Rapid Connect Mode** | A toggleable "Edit Mode" allowing sequential clicking to connect cities instantly. |
+| **Integrity Safeguards** | Logic prevents duplicate edges between nodes to maintain graph validity. |
+| **Layout Engines** | Includes **Organic** (Physics), **Force Atlas** (Gravity), **Hierarchical** (Tree), **Circular**, and **Grid** layouts. |
+| **Simulation** | Visualizes the active path with directional animations and a step-by-step cost log. |
 
-### Installation
+## 5. Installation & Usage
 
-1.  **Clone the repository:**
+To replicate the simulation environment locally:
+
+1.  **Clone the Repository:**
     ```bash
     git clone [https://github.com/your-username/Logistic-Route-Optimizer.git](https://github.com/your-username/Logistic-Route-Optimizer.git)
     cd Logistic-Route-Optimizer
     ```
 
-2.  **Install dependencies:**
+2.  **Install Dependencies:**
     ```bash
     npm install
     ```
 
-3.  **Run the development server:**
+3.  **Launch Application:**
     ```bash
     npm run dev
     ```
 
-4.  **Open in Browser:**
-    Click the link shown in the terminal (usually `http://localhost:5173`).
-
-## 🎮 Controls
-
-| Action | Control |
-| :--- | :--- |
-| **Add City** | Click the "Add City" button in the sidebar. |
-| **Connect** | Click "Connect Cities", select Start City, then select End City. |
-| **Move** | Drag any blue circle (City) to move it. |
-| **Edit** | Click any City or Line to edit its name or cost in the sidebar. |
-| **Delete** | Select an item and click "Delete" in the sidebar. |
-| **Auto-Layout** | Use the "Auto-Layout" button or change the engine dropdown. |
-
-## 🔮 Future Improvements
-* Implement Dijkstra's Algorithm visualization.
-* Add 3D Map View.
-* Save/Load maps from local storage.
+## 6. Future Work
+Current implementation relies on greedy heuristics which provide an $O(n^2)$ approximation. Future iterations will explore exact algorithms (Held-Karp) for smaller graphs ($N < 20$) and genetic algorithms for larger datasets.
 
 ---
-
-**Author:** [Your Name]
+*Developed as part of a research initiative on Algorithmic Graph Theory.*
