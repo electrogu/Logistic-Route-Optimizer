@@ -12,6 +12,9 @@ const IconPlay = () => <svg width="20" height="20" fill="none" stroke="currentCo
 const IconTrash = () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>;
 const IconMagic = () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>;
 const IconDice = () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><circle cx="15.5" cy="15.5" r="1.5"></circle><circle cx="15.5" cy="8.5" r="1.5"></circle><circle cx="8.5" cy="15.5" r="1.5"></circle></svg>;
+// NEW ICONS
+const IconBroom = () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M6.3 12.3l10-10a1 1 0 0 1 1.4 0l4 4a1 1 0 0 1 0 1.4l-10 10a1 1 0 0 1-.7.3H7a1 1 0 0 1-1-1v-4a1 1 0 0 1 .3-.7zM15 14l4 4M2 22h20"></path></svg>;
+const IconBomb = () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M11 2a9 9 0 0 1 9 9c0 3-1.5 5.5-4 7M6 11c0-3 1.5-5.5 4-7M2 22h20M12 22v-5M15 17l-3-3-3 3"></path></svg>;
 
 // --- ALGORITHMS ---
 const INF = 1e9;
@@ -91,9 +94,8 @@ export default function App() {
   const [instruction, setInstruction] = useState("Click 'Add City' to start.");
   const [startNodeId, setStartNodeId] = useState('S');
   const [availableNodes, setAvailableNodes] = useState([]);
-  const [layoutMode, setLayoutMode] = useState('organic'); // organic, force, hierarchical
+  const [layoutMode, setLayoutMode] = useState('organic');
 
-  // Data Refs
   const nodesRef = useRef(new DataSet([
     { id: 'S', label: 'Start', color: '#6366f1', font: { color: 'white', size: 22, face: GRAPH_FONT } },
     { id: 'A', label: 'City A', color: '#3b82f6', font: { color: 'white', size: 22, face: GRAPH_FONT } },
@@ -114,7 +116,6 @@ export default function App() {
     if (!containerRef.current) return;
     const data = { nodes: nodesRef.current, edges: edgesRef.current };
 
-    // Default Options (Organic)
     const options = {
       height: '100%',
       width: '100%',
@@ -125,9 +126,7 @@ export default function App() {
         repulsion: { nodeDistance: 300, springLength: 300, springConstant: 0.05 },
         stabilization: { iterations: 100 }
       },
-      layout: {
-        hierarchical: false
-      },
+      layout: { hierarchical: false },
       interaction: { hover: true, selectConnectedEdges: false },
       nodes: {
         shape: 'circle',
@@ -167,43 +166,50 @@ export default function App() {
     return () => net.destroy();
   }, []);
 
-  // --- ACTIONS ---
-  const changeLayout = (mode) => {
-    setLayoutMode(mode);
+  const organizeLayout = () => {
     if (!network) return;
+    setInstruction("Reorganizing layout...");
 
-    if (mode === 'organic') {
+    if (layoutMode === 'organic') {
       network.setOptions({
-        physics: {
-          enabled: true,
-          solver: 'repulsion',
-          repulsion: { nodeDistance: 300, springLength: 300 }
-        },
+        physics: { enabled: true, solver: 'repulsion', repulsion: { nodeDistance: 350, springLength: 250 } },
         layout: { hierarchical: false }
       });
-    } else if (mode === 'force') {
+      network.stabilize(500);
+      network.fit({ animation: true });
+    } else if (layoutMode === 'force') {
       network.setOptions({
-        physics: {
-          enabled: true,
-          solver: 'forceAtlas2Based',
-          forceAtlas2Based: { gravitationalConstant: -100, springLength: 100, springConstant: 0.09 }
-        },
+        physics: { enabled: true, solver: 'forceAtlas2Based', forceAtlas2Based: { gravitationalConstant: -100, springLength: 100 } },
         layout: { hierarchical: false }
       });
-    } else if (mode === 'hierarchical') {
+      network.stabilize(500);
+      network.fit({ animation: true });
+    } else if (layoutMode === 'hierarchical') {
       network.setOptions({
-        physics: { enabled: false }, // Tree usually looks better static or with hierarchicalRepulsion
-        layout: {
-          hierarchical: {
-            enabled: true,
-            direction: 'UD', // Up-Down
-            sortMethod: 'directed',
-            levelSeparation: 150,
-            nodeSpacing: 200
-          }
-        }
+        physics: { enabled: false },
+        layout: { hierarchical: { enabled: true, direction: 'UD', sortMethod: 'directed', levelSeparation: 150, nodeSpacing: 200 } }
       });
+      network.fit({ animation: true });
+    } else if (layoutMode === 'circular') {
+      network.setOptions({ physics: { enabled: false }, layout: { hierarchical: false } });
+      const nodes = nodesRef.current.get();
+      const radius = 300;
+      nodes.forEach((node, index) => {
+        const angle = (2 * Math.PI * index) / nodes.length;
+        nodesRef.current.update({ id: node.id, x: radius * Math.cos(angle), y: radius * Math.sin(angle) });
+      });
+      network.fit({ animation: true });
+    } else if (layoutMode === 'grid') {
+      network.setOptions({ physics: { enabled: false }, layout: { hierarchical: false } });
+      const nodes = nodesRef.current.get();
+      const cols = Math.ceil(Math.sqrt(nodes.length));
+      const spacing = 200;
+      nodes.forEach((node, index) => {
+        nodesRef.current.update({ id: node.id, x: (index % cols) * spacing, y: Math.floor(index / cols) * spacing });
+      });
+      network.fit({ animation: true });
     }
+    setTimeout(() => setInstruction("Layout optimized."), 500);
   };
 
   const addNode = () => {
@@ -248,6 +254,28 @@ export default function App() {
     });
     edgesRef.current.add(newEdges);
     setInstruction("Map randomized!");
+    setTimeout(organizeLayout, 100);
+  };
+
+  // --- NEW RESET FUNCTIONS ---
+  const clearRoads = () => {
+    if (window.confirm("Remove all roads? Cities will remain.")) {
+      edgesRef.current.clear();
+      setRouteLog([]);
+      setResult(null);
+      setInstruction("Roads cleared. Cities kept.");
+    }
+  };
+
+  const clearAll = () => {
+    if (window.confirm("RESET EVERYTHING? This will remove all cities and roads.")) {
+      edgesRef.current.clear();
+      nodesRef.current.clear();
+      setRouteLog([]);
+      setResult(null);
+      setSelection(null);
+      setInstruction("Map reset. Start by adding a city.");
+    }
   };
 
   const startConnect = () => {
@@ -365,19 +393,20 @@ export default function App() {
   };
 
   const styles = {
-    container: { display: 'flex', height: '100vh', width: '100vw', background: '#111827', color: 'white', fontFamily: 'Verdana, sans-serif' },
-    sidebar: { width: '340px', background: '#1f2937', borderRight: '1px solid #374151', display: 'flex', flexDirection: 'column' },
-    scrollArea: { padding: '20px', overflowY: 'auto', flex: 1 },
+    container: { display: 'flex', height: '100vh', width: '100vw', background: '#111827', color: 'white', fontFamily: 'Verdana, sans-serif', overflow: 'hidden' },
+    sidebar: { width: '340px', background: '#1f2937', borderRight: '1px solid #374151', display: 'flex', flexDirection: 'column', height: '100vh', zIndex: 10 },
+    scrollArea: { padding: '20px', overflowY: 'auto', flex: 1, scrollbarWidth: 'thin', scrollbarColor: '#4b5563 #1f2937' },
     graphArea: { flex: 1, position: 'relative', background: '#030712' },
-    button: { display: 'flex', alignItems: 'center', gap: '10px', background: '#374151', color: 'white', border: '1px solid #4b5563', padding: '12px', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', width: '100%', marginBottom: '10px', transition: 'all 0.2s', fontFamily: 'Verdana, sans-serif' },
+    button: { display: 'flex', alignItems: 'center', gap: '10px', background: '#374151', color: 'white', border: '1px solid #4b5563', padding: '12px', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', width: '100%', marginBottom: '10px', transition: 'all 0.2s', fontFamily: 'Verdana, sans-serif', boxSizing: 'border-box' },
     buttonPrimary: { background: '#2563eb', borderColor: '#2563eb', fontWeight: 'bold' },
-    input: { background: '#111827', border: '1px solid #4b5563', color: 'white', padding: '10px', borderRadius: '4px', width: '100%', marginBottom: '10px', fontSize: '14px', fontFamily: 'Verdana, sans-serif' },
-    select: { background: '#111827', border: '1px solid #4b5563', color: 'white', padding: '10px', borderRadius: '6px', width: '100%', marginBottom: '15px', cursor: 'pointer', fontFamily: 'Verdana, sans-serif' },
+    input: { background: '#111827', border: '1px solid #4b5563', color: 'white', padding: '10px', borderRadius: '4px', width: '100%', marginBottom: '10px', fontSize: '14px', fontFamily: 'Verdana, sans-serif', boxSizing: 'border-box' },
+    select: { background: '#111827', border: '1px solid #4b5563', color: 'white', padding: '10px', borderRadius: '6px', width: '100%', marginBottom: '15px', cursor: 'pointer', fontFamily: 'Verdana, sans-serif', boxSizing: 'border-box' },
     sectionTitle: { fontSize: '13px', fontWeight: 'bold', color: '#9ca3af', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' },
     logItem: { background: '#111827', padding: '10px', borderRadius: '6px', marginBottom: '8px', borderLeft: '3px solid #3b82f6', fontSize: '13px' },
     virtualLog: { borderLeft: '3px solid #f87171', borderStyle: 'dashed' },
     status: { position: 'absolute', top: 20, left: 20, background: 'rgba(31, 41, 55, 0.9)', padding: '8px 16px', borderRadius: '20px', border: '1px solid #374151', fontSize: '13px', color: '#e5e7eb' },
-    resultBox: { padding: '15px', borderRadius: '8px', marginBottom: '20px', fontWeight: 'bold', textAlign: 'center', background: result?.type === 'error' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)', color: result?.type === 'error' ? '#fca5a5' : '#6ee7b7', border: `1px solid ${result?.type === 'error' ? '#ef4444' : '#10b981'}` }
+    resultBox: { padding: '15px', borderRadius: '8px', marginBottom: '20px', fontWeight: 'bold', textAlign: 'center', background: result?.type === 'error' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)', color: result?.type === 'error' ? '#fca5a5' : '#6ee7b7', border: `1px solid ${result?.type === 'error' ? '#ef4444' : '#10b981'}`, boxSizing: 'border-box' },
+    editBox: { marginBottom: '20px', padding: '15px', background: '#111827', borderRadius: '8px', border: '1px solid #374151', boxSizing: 'border-box' }
   };
 
   return (
@@ -392,17 +421,28 @@ export default function App() {
             <button style={styles.button} onClick={addNode}><IconPlus /> Add City</button>
             <button style={styles.button} onClick={startConnect}><IconLink /> Connect Cities</button>
             <button style={styles.button} onClick={randomizeMap}><IconDice /> Randomize Roads</button>
+
+            {/* NEW RESET BUTTONS */}
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button style={{ ...styles.button, width: '50%' }} onClick={clearRoads}>
+                <IconBroom /> Clear Roads
+              </button>
+              <button style={{ ...styles.button, width: '50%', borderColor: '#7f1d1d', color: '#fca5a5' }} onClick={clearAll}>
+                <IconBomb /> Reset All
+              </button>
+            </div>
           </div>
 
-          {/* NEW LAYOUT ENGINE SECTION */}
           <div style={{ marginBottom: '20px' }}>
             <div style={styles.sectionTitle}>2. Layout Engine</div>
-            <select style={styles.select} value={layoutMode} onChange={(e) => changeLayout(e.target.value)}>
+            <select style={styles.select} value={layoutMode} onChange={(e) => setLayoutMode(e.target.value)}>
               <option value="organic">Organic (Default)</option>
               <option value="force">Force Atlas (Gravity)</option>
               <option value="hierarchical">Tree (Top-Down)</option>
+              <option value="circular">Circular (Ring)</option>
+              <option value="grid">Grid (Matrix)</option>
             </select>
-            <button style={styles.button} onClick={() => network?.stabilize()}><IconMagic /> Stabilize</button>
+            <button style={styles.button} onClick={organizeLayout}><IconMagic /> Optimize Layout</button>
           </div>
 
           <div style={{ marginBottom: '20px' }}>
@@ -417,7 +457,7 @@ export default function App() {
           </div>
 
           {selection && (
-            <div style={{ marginBottom: '20px', padding: '15px', background: '#111827', borderRadius: '8px', border: '1px solid #374151' }}>
+            <div style={styles.editBox}>
               <div style={styles.sectionTitle}>Edit {selection.type === 'node' ? 'City' : 'Road'}</div>
               <label style={{ display: 'block', fontSize: '12px', marginBottom: 5 }}>Name / Cost:</label>
               <input style={styles.input} value={selection.data.label} onChange={(e) => updateLabel(e.target.value)} />
