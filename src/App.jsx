@@ -12,9 +12,10 @@ const IconPlay = () => <svg width="20" height="20" fill="none" stroke="currentCo
 const IconTrash = () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>;
 const IconMagic = () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>;
 const IconDice = () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><circle cx="15.5" cy="15.5" r="1.5"></circle><circle cx="15.5" cy="8.5" r="1.5"></circle><circle cx="8.5" cy="15.5" r="1.5"></circle></svg>;
-// NEW ICONS
 const IconBroom = () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M6.3 12.3l10-10a1 1 0 0 1 1.4 0l4 4a1 1 0 0 1 0 1.4l-10 10a1 1 0 0 1-.7.3H7a1 1 0 0 1-1-1v-4a1 1 0 0 1 .3-.7zM15 14l4 4M2 22h20"></path></svg>;
 const IconBomb = () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M11 2a9 9 0 0 1 9 9c0 3-1.5 5.5-4 7M6 11c0-3 1.5-5.5 4-7M2 22h20M12 22v-5M15 17l-3-3-3 3"></path></svg>;
+// NEW: CLOSE/X ICON
+const IconX = () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>;
 
 // --- ALGORITHMS ---
 const INF = 1e9;
@@ -35,7 +36,7 @@ const getMetricClosure = (nodes, edges) => {
     const weight = parseInt(e.label || "0");
     if (u !== undefined && v !== undefined && !isNaN(weight)) {
       dist[u][v] = weight;
-      dist[v][u] = weight; // Bidirectional
+      dist[v][u] = weight;
     }
   });
 
@@ -96,6 +97,12 @@ export default function App() {
   const [availableNodes, setAvailableNodes] = useState([]);
   const [layoutMode, setLayoutMode] = useState('organic');
 
+  // NEW: State for "Edit Mode"
+  const [isConnecting, setIsConnecting] = useState(false);
+  // Refs to access state inside event listeners without closure issues
+  const isConnectingRef = useRef(false);
+  const connectionSourceRef = useRef(null);
+
   const nodesRef = useRef(new DataSet([
     { id: 'S', label: 'Start', color: '#6366f1', font: { color: 'white', size: 22, face: GRAPH_FONT } },
     { id: 'A', label: 'City A', color: '#3b82f6', font: { color: 'white', size: 22, face: GRAPH_FONT } },
@@ -146,7 +153,46 @@ export default function App() {
     setNetwork(net);
     updateNodeList();
 
+    // --- MAIN INTERACTION HANDLER ---
     net.on("click", (params) => {
+      // CHECK 1: ARE WE IN CONNECT MODE?
+      if (isConnectingRef.current) {
+        if (params.nodes.length > 0) {
+          const clickedId = params.nodes[0];
+
+          if (connectionSourceRef.current === null) {
+            // Step 1: Select Source
+            connectionSourceRef.current = clickedId;
+            setInstruction(`Source: ${nodesRef.current.get(clickedId).label}. Now click Destination.`);
+          } else {
+            // Step 2: Select Destination
+            const sourceId = connectionSourceRef.current;
+            if (sourceId !== clickedId) {
+              edgesRef.current.add({
+                id: `e-${Date.now()}`,
+                from: sourceId,
+                to: clickedId,
+                label: '10',
+                color: { color: '#6b7280' },
+                font: { color: 'white', background: '#374151', strokeWidth: 0, size: 16, face: GRAPH_FONT }
+              });
+              setInstruction("Connected! Click a new Source city.");
+              connectionSourceRef.current = null; // Reset for next pair
+            } else {
+              // Clicked same node twice, reset
+              connectionSourceRef.current = null;
+              setInstruction("Cancelled. Click a Source city.");
+            }
+          }
+        } else {
+          // Clicked empty space: Cancel current pair, keep mode on
+          connectionSourceRef.current = null;
+          setInstruction("Ready to connect. Click a Source city.");
+        }
+        return; // STOP HERE (Don't open edit menu)
+      }
+
+      // CHECK 2: STANDARD SELECTION MODE
       if (params.nodes.length > 0) {
         const nodeId = params.nodes[0];
         setSelection({ type: 'node', id: nodeId, data: nodesRef.current.get(nodeId) });
@@ -170,25 +216,15 @@ export default function App() {
     if (!network) return;
     setInstruction("Reorganizing layout...");
 
-    if (layoutMode === 'organic') {
-      network.setOptions({
-        physics: { enabled: true, solver: 'repulsion', repulsion: { nodeDistance: 350, springLength: 250 } },
-        layout: { hierarchical: false }
-      });
+    const layoutOptions = {
+      organic: { physics: { enabled: true, solver: 'repulsion', repulsion: { nodeDistance: 350, springLength: 250 } }, layout: { hierarchical: false } },
+      force: { physics: { enabled: true, solver: 'forceAtlas2Based', forceAtlas2Based: { gravitationalConstant: -100, springLength: 100 } }, layout: { hierarchical: false } },
+      hierarchical: { physics: { enabled: false }, layout: { hierarchical: { enabled: true, direction: 'UD', sortMethod: 'directed', levelSeparation: 150, nodeSpacing: 200 } } }
+    };
+
+    if (layoutOptions[layoutMode]) {
+      network.setOptions(layoutOptions[layoutMode]);
       network.stabilize(500);
-      network.fit({ animation: true });
-    } else if (layoutMode === 'force') {
-      network.setOptions({
-        physics: { enabled: true, solver: 'forceAtlas2Based', forceAtlas2Based: { gravitationalConstant: -100, springLength: 100 } },
-        layout: { hierarchical: false }
-      });
-      network.stabilize(500);
-      network.fit({ animation: true });
-    } else if (layoutMode === 'hierarchical') {
-      network.setOptions({
-        physics: { enabled: false },
-        layout: { hierarchical: { enabled: true, direction: 'UD', sortMethod: 'directed', levelSeparation: 150, nodeSpacing: 200 } }
-      });
       network.fit({ animation: true });
     } else if (layoutMode === 'circular') {
       network.setOptions({ physics: { enabled: false }, layout: { hierarchical: false } });
@@ -221,6 +257,22 @@ export default function App() {
       font: { color: 'white', size: 22, face: GRAPH_FONT }
     });
     setInstruction("City added. Drag to move.");
+  };
+
+  // --- TOGGLE CONNECT MODE ---
+  const toggleConnectMode = () => {
+    const newState = !isConnectingRef.current;
+    isConnectingRef.current = newState;
+    setIsConnecting(newState); // Trigger re-render for UI updates
+
+    if (newState) {
+      setInstruction("🔗 MODE ACTIVE: Click Source then Destination.");
+      setSelection(null); // Clear sidebar
+      connectionSourceRef.current = null;
+    } else {
+      setInstruction("Edit Mode.");
+      connectionSourceRef.current = null;
+    }
   };
 
   const randomizeMap = () => {
@@ -257,52 +309,24 @@ export default function App() {
     setTimeout(organizeLayout, 100);
   };
 
-  // --- NEW RESET FUNCTIONS ---
   const clearRoads = () => {
     if (window.confirm("Remove all roads? Cities will remain.")) {
       edgesRef.current.clear();
       setRouteLog([]);
       setResult(null);
-      setInstruction("Roads cleared. Cities kept.");
+      setInstruction("Roads cleared.");
     }
   };
 
   const clearAll = () => {
-    if (window.confirm("RESET EVERYTHING? This will remove all cities and roads.")) {
+    if (window.confirm("RESET EVERYTHING?")) {
       edgesRef.current.clear();
       nodesRef.current.clear();
       setRouteLog([]);
       setResult(null);
       setSelection(null);
-      setInstruction("Map reset. Start by adding a city.");
+      setInstruction("Map reset.");
     }
-  };
-
-  const startConnect = () => {
-    if (!network) return;
-    setInstruction("Select START city.");
-    network.once("click", (p1) => {
-      if (p1.nodes.length > 0) {
-        const startNode = p1.nodes[0];
-        setInstruction(`Selected ${nodesRef.current.get(startNode).label}. Now select DESTINATION.`);
-        network.once("click", (p2) => {
-          if (p2.nodes.length > 0) {
-            const endNode = p2.nodes[0];
-            if (startNode !== endNode) {
-              edgesRef.current.add({
-                id: `e-${Date.now()}`,
-                from: startNode,
-                to: endNode,
-                label: '10',
-                color: { color: '#6b7280' },
-                font: { color: 'white', background: '#374151', strokeWidth: 0, size: 16, face: GRAPH_FONT }
-              });
-              setInstruction("Connected!");
-            }
-          }
-        });
-      }
-    });
   };
 
   const deleteSelection = () => {
@@ -371,10 +395,7 @@ export default function App() {
           id: existing.id,
           color: { color: '#ef4444' },
           width: 5,
-          arrows: {
-            to: { enabled: isForward },
-            from: { enabled: !isForward }
-          }
+          arrows: { to: { enabled: isForward }, from: { enabled: !isForward } }
         });
       } else {
         edgesRef.current.add({
@@ -399,6 +420,7 @@ export default function App() {
     graphArea: { flex: 1, position: 'relative', background: '#030712' },
     button: { display: 'flex', alignItems: 'center', gap: '10px', background: '#374151', color: 'white', border: '1px solid #4b5563', padding: '12px', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', width: '100%', marginBottom: '10px', transition: 'all 0.2s', fontFamily: 'Verdana, sans-serif', boxSizing: 'border-box' },
     buttonPrimary: { background: '#2563eb', borderColor: '#2563eb', fontWeight: 'bold' },
+    buttonActive: { background: '#059669', borderColor: '#059669', fontWeight: 'bold' }, // GREEN FOR ACTIVE MODE
     input: { background: '#111827', border: '1px solid #4b5563', color: 'white', padding: '10px', borderRadius: '4px', width: '100%', marginBottom: '10px', fontSize: '14px', fontFamily: 'Verdana, sans-serif', boxSizing: 'border-box' },
     select: { background: '#111827', border: '1px solid #4b5563', color: 'white', padding: '10px', borderRadius: '6px', width: '100%', marginBottom: '15px', cursor: 'pointer', fontFamily: 'Verdana, sans-serif', boxSizing: 'border-box' },
     sectionTitle: { fontSize: '13px', fontWeight: 'bold', color: '#9ca3af', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' },
@@ -419,17 +441,21 @@ export default function App() {
           <div style={{ marginBottom: '20px' }}>
             <div style={styles.sectionTitle}>1. Build Map</div>
             <button style={styles.button} onClick={addNode}><IconPlus /> Add City</button>
-            <button style={styles.button} onClick={startConnect}><IconLink /> Connect Cities</button>
+
+            {/* TOGGLE CONNECT MODE BUTTON */}
+            <button
+              style={isConnecting ? { ...styles.button, ...styles.buttonActive } : styles.button}
+              onClick={toggleConnectMode}
+            >
+              {isConnecting ? <IconX /> : <IconLink />}
+              {isConnecting ? "Stop Connecting" : "Connect Cities"}
+            </button>
+
             <button style={styles.button} onClick={randomizeMap}><IconDice /> Randomize Roads</button>
 
-            {/* NEW RESET BUTTONS */}
             <div style={{ display: 'flex', gap: '10px' }}>
-              <button style={{ ...styles.button, width: '50%' }} onClick={clearRoads}>
-                <IconBroom /> Clear Roads
-              </button>
-              <button style={{ ...styles.button, width: '50%', borderColor: '#7f1d1d', color: '#fca5a5' }} onClick={clearAll}>
-                <IconBomb /> Reset All
-              </button>
+              <button style={{ ...styles.button, width: '50%' }} onClick={clearRoads}><IconBroom /> Clear Roads</button>
+              <button style={{ ...styles.button, width: '50%', borderColor: '#7f1d1d', color: '#fca5a5' }} onClick={clearAll}><IconBomb /> Reset All</button>
             </div>
           </div>
 
