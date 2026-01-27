@@ -425,10 +425,21 @@ export default function App() {
     setRouteLog(newLogs);
   };
 
+  // --- RESPONSIVE STATE ---
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  const isMobile = windowWidth < 768;
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const styles = {
     container: {
       display: 'flex',
-      height: '100vh',
+      flexDirection: isMobile ? 'column' : 'row',
+      height: '100vh', // Mobile browsers sometimes hate 100vh, but let's stick to it for now or use 100%
       width: '100vw',
       background: '#111827',
       color: 'white',
@@ -436,13 +447,15 @@ export default function App() {
       overflow: 'hidden',
     },
     sidebar: {
-      width: '340px',
+      width: isMobile ? '100%' : '340px',
+      height: isMobile ? '45%' : '100vh',
       background: '#1f2937',
-      borderRight: '1px solid #374151',
+      borderRight: isMobile ? 'none' : '1px solid #374151',
+      borderTop: isMobile ? '1px solid #374151' : 'none',
       display: 'flex',
       flexDirection: 'column',
-      height: '100vh',
       zIndex: 10,
+      order: isMobile ? 2 : 0, // Put sidebar at bottom on mobile
     },
     scrollArea: {
       padding: '20px',
@@ -453,8 +466,10 @@ export default function App() {
     },
     graphArea: {
       flex: 1,
+      height: isMobile ? '55%' : '100%',
       position: 'relative',
       background: '#030712',
+      order: isMobile ? 1 : 0,
     },
     button: {
       display: 'flex',
@@ -529,14 +544,17 @@ export default function App() {
     },
     status: {
       position: 'absolute',
-      top: 20,
-      left: 20,
+      top: isMobile ? 10 : 20,
+      left: isMobile ? '50%' : 20,
+      transform: isMobile ? 'translateX(-50%)' : 'none',
       background: 'rgba(31, 41, 55, 0.9)',
       padding: '8px 16px',
       borderRadius: '20px',
       border: '1px solid #374151',
       fontSize: '13px',
       color: '#e5e7eb',
+      whiteSpace: 'nowrap',
+      zIndex: 20,
     },
     resultBox: {
       padding: '15px',
